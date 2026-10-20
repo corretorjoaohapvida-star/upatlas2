@@ -31,14 +31,19 @@ const status=document.querySelector("#hotmart-status"), statusText=document.quer
 if(!target)return;
 const fail=()=>{status.hidden=false;statusText.textContent="Les options Hotmart ne sont pas disponibles. Rechargez la page ou revenez depuis le parcours de votre commande.";retry.hidden=false;};
 retry.addEventListener("click",()=>window.location.reload());
-// No financial widget until the owner has verified delivery, legal details and the NEW EUR20 funnel.
-if(!(cfg.productVerified&&cfg.offerConfigured&&cfg.legalComplete)){
- statusText.textContent="L’ajout à cette commande n’est pas disponible actuellement.";
+// Widget supplied and explicitly authorized by the offer owner. This does not verify a purchase or delivery.
+if(!cfg.hotmartWidgetEnabled){
+ statusText.textContent="Les options d’ajout ne sont pas disponibles pour le moment.";
  return;
 }
-const previewAccept=document.querySelector('#hotmart-preview-accept');
-if(previewAccept)previewAccept.hidden=true;
+// Only hide the empty localhost preview. On published pages Hotmart decides eligibility, not our URL heuristic.
+const showOfficialWidget=!( ['localhost','127.0.0.1','[::1]'].includes(window.location.hostname)&&window.location.search.length<=1 );
+if(!showOfficialWidget){
+ target.hidden=true;
+ statusText.textContent="Pour afficher les options d’ajout et de refus, ouvrez cette page depuis le parcours de votre commande Hotmart.";
+}else{
 statusText.textContent="Chargement des options sécurisées Hotmart…";
+}
 const script=document.createElement("script");script.src=cfg.hotmartScript;script.async=true;
 script.onerror=fail;
 script.onload=()=>{
@@ -46,9 +51,9 @@ script.onload=()=>{
   if(!window.checkoutElements||typeof window.checkoutElements.init!=="function"){fail();return;}
   // Official widget receives original page URL/query. No copied merchant ID or fabricated session.
   window.checkoutElements.init("salesFunnel").mount("#hotmart-sales-funnel");
-  const observer=new MutationObserver(()=>{if(target.querySelector("iframe")){status.hidden=true;observer.disconnect();}});
+  const observer=new MutationObserver(()=>{if(target.querySelector("iframe")){status.hidden=showOfficialWidget;observer.disconnect();}});
   observer.observe(target,{childList:true,subtree:true});
-  if(target.querySelector("iframe")){status.hidden=true;observer.disconnect();}
+  if(target.querySelector("iframe")){status.hidden=showOfficialWidget;observer.disconnect();}
   window.setTimeout(()=>{observer.disconnect();if(!target.querySelector("iframe"))fail();},15000);
  }catch(_){fail();}
 };
